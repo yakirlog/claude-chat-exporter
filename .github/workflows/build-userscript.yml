@@ -1,0 +1,52 @@
+name: Build userscript
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Userscript version, e.g. 1.0.1"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Build userscript
+        run: |
+          node build-userscript.mjs "${{ inputs.version }}"
+
+      - name: Check generated file
+        run: |
+          test -f claude-chat-exporter.user.js
+
+          echo "Generated userscript:"
+          git diff --stat
+
+      - name: Commit generated userscript
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add claude-chat-exporter.user.js
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git commit -m "build: userscript v${{ inputs.version }}"
+          git push
+          
