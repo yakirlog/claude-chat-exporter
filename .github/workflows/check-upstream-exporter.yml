@@ -40,6 +40,9 @@ jobs:
             echo "Files are identical."
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
+            
+            diff -u local.js upstream.js > upstream.diff || true
+            
             echo "Upstream exporter has changed."
           fi
 
@@ -63,37 +66,49 @@ jobs:
             exit 0
           fi
 
+          # Limit the embedded diff to avoid creating an excessively large issue.
+          head -n 500 upstream.diff > issue.diff
+          {
+            echo 'The upstream `claude-chat-exporter.js` differs from the version currently stored in this fork.'
+            echo
+            echo 'Upstream:'
+            echo '  https://github.com/agarwalvishal/claude-chat-exporter/blob/main/claude-chat-exporter.js'
+            echo
+            echo 'Compare:'
+            echo '  https://github.com/yakirlog/claude-chat-exporter/compare/main...agarwalvishal:claude-chat-exporter:main'
+            echo
+            echo '## Diff'
+            echo
+            echo '```diff'
+            cat issue.diff
+            echo '```'
+            echo
+            echo '## Update workflow'
+            echo
+            echo '1. Review the upstream changes above.'
+            echo '2. Sync this fork with upstream.'
+            echo '3. Confirm that the exporter still ends with:'
+            echo
+            echo '   ```javascript'
+            echo '   setupClaudeExporter();'
+            echo '   ```'
+            echo
+            echo '4. Rebuild the userscript by running the userscript build workflow (GitHub action),'
+            echo '   or build it manually:'
+            echo
+            echo '   ```bash'
+            echo '   node build-userscript.mjs <new-version>'
+            echo '   ```'
+            echo
+            echo '   And then test and commit the regenerated `claude-chat-exporter.user.js`.'
+            echo
+            echo '5. Test the generated userscript in Tampermonkey.'
+            echo '6. Close this issue.'
+          } > issue-body.md
+          
+          # Create the issue
           gh issue create \
             --repo "$GITHUB_REPOSITORY" \
             --title "$ISSUE_TITLE" \
-            --body "$(cat <<'EOF'
-          The upstream `claude-chat-exporter.js` differs from the version currently stored in this fork.
-
-          Upstream:
-          https://github.com/agarwalvishal/claude-chat-exporter/blob/main/claude-chat-exporter.js
-
-          Compare:
-          https://github.com/yakirlog/claude-chat-exporter/compare/main...agarwalvishal:claude-chat-exporter:main
-
-          ## Update workflow
-
-          1. Review the upstream changes.
-          2. Sync the fork with upstream.
-          3. Confirm that the exporter still ends with:
-
-             ```javascript
-             setupClaudeExporter();
-             ```
-
-          4. Rebuild the userscript:
-
-             ```bash
-             node build-userscript.mjs <new-version>
-             ```
-
-          5. Test the generated userscript in Tampermonkey.
-          6. Commit the regenerated `claude-chat-exporter.user.js`.
-          7. Close this issue.
-          EOF
-          )"
+            --body-file issue-body.md
           
